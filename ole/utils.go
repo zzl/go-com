@@ -63,3 +63,11 @@ func HiMetricToPixel(hiX, hiY int32) (int32, int32) {
 	return win32.MulDiv(nPixelsPerInchX, hiX, 2540),
 		win32.MulDiv(nPixelsPerInchY, hiY, 2540)
 }
+
+type OleClientConstraint interface {
+	GetOleClient() *OleClient
+}
+
+func As[TTo OleClientConstraint, TFrom OleClientConstraint](from TFrom) TTo {
+	return *(*TTo)(unsafe.Pointer(&from))
+}

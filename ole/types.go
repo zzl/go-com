@@ -35,7 +35,7 @@ type DispatchClass struct {
 func NewDispatchClass(pDisp *win32.IDispatch, scoped bool) *DispatchClass {
 	p := &DispatchClass{OleClient{pDisp}}
 	if scoped {
-		com.AddScopedComPtr(&p.IUnknown)
+		com.AddToScope(p)
 	}
 	return p
 }

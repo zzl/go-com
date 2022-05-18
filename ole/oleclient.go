@@ -30,6 +30,10 @@ func (this *OleClient) Dispose() {
 	//
 }
 
+func (this *OleClient) GetOleClient() *OleClient {
+	return this
+}
+
 func (this *OleClient) PropPut(dispId win32.DISPID,
 	reqArgs []interface{}, optArgs ...interface{}) win32.HRESULT {
 
@@ -176,7 +180,11 @@ func SetVariantParam(v *Variant, value interface{}, unwrapActions *Actions) {
 		//?*v.DateVal() =
 	case string:
 		v.Vt = uint16(win32.VT_BSTR)
-		*v.BstrVal() = win32.StrToBstr(val)
+		bs := win32.StrToBstr(val)
+		*v.BstrVal() = bs
+		unwrapActions.Add(func() {
+			win32.SysFreeString(bs)
+		})
 	case *int8:
 		v.Vt = uint16(win32.VT_I1 | win32.VT_BYREF)
 		//*v.PcVal() = (*win32.CHAR)(unsafe.Pointer(val))
@@ -277,6 +285,15 @@ func SetVariantParam(v *Variant, value interface{}, unwrapActions *Actions) {
 	case IDispatchProvider:
 		v.Vt = uint16(win32.VT_DISPATCH)
 		*v.PdispVal() = val.GetIDispatch(false) //?
+	case SafeArrayInterface:
+		psa := val.SafeArrayPtr()
+		var vt uint16
+		win32.SafeArrayGetVartype(psa, &vt)
+		v.Vt = uint16(win32.VT_ARRAY)|vt
+		*v.Parray() = psa
+	case *win32.SAFEARRAY:
+		v.Vt = uint16(win32.VT_ARRAY)
+		*v.Parray() = val
 	default:
 		panic("??")
 	}

@@ -2,6 +2,7 @@ package ole
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"reflect"
 	"strconv"
@@ -17,6 +18,7 @@ type Variant win32.VARIANT
 
 func NewVariant(value interface{}) *Variant {
 	switch val := value.(type) {
+	//case arr
 	case *win32.VARIANT:
 		return (*Variant)(val).Copy()
 	case string:
@@ -1328,11 +1330,59 @@ type VariantDispatch struct { //24
 	_pad3 int64            //8@16
 }
 
+//addref?
 func NewVariantDispatch(pDisp *win32.IDispatch) *Variant {
 	return (*Variant)(unsafe.Pointer(&VariantDispatch{
 		Vt: win32.VT_DISPATCH, Value: pDisp}))
 }
 
-func Var(value *win32.VARIANT) *Variant {
-	return (*Variant)(value)
+func Var(value interface{}) Variant {
+	v := NewVariant(value)
+	return *v
+}
+
+func VarScoped(value interface{}) Variant {
+	v := NewVariant(value)
+	com.CurrentScope.AddVarIfNeeded((*win32.VARIANT)(v))
+	return *v
+}
+
+func CheckVarType(value interface{}) win32.VARENUM {
+	switch value.(type) {
+	case win32.VARIANT, Variant:
+		return win32.VT_VARIANT
+	case win32.BSTR, com.BStr:
+		return win32.VT_BSTR
+	case *win32.IUnknown:
+		return win32.VT_UNKNOWN
+	case *win32.IDispatch:
+		return win32.VT_DISPATCH
+	case int8:
+		return win32.VT_I1
+	case uint8:
+		return win32.VT_UI1
+	case int16:
+		return win32.VT_I2
+	case uint16:
+		return win32.VT_UI2
+	case int32:
+		return win32.VT_I4
+	case uint32:
+		return win32.VT_UI4
+	case int64:
+		return win32.VT_I8
+	case uint64:
+		return win32.VT_UI8
+	case float32:
+		return win32.VT_R4
+	case float64:
+		return win32.VT_R8
+	case int:
+		return win32.VT_I4
+	case uint:
+		return win32.VT_UI4
+	default:
+		log.Panic("unsupported var type")
+	}
+	return 0
 }

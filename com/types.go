@@ -21,7 +21,7 @@ func (this *UnknownClass) Dispose() {
 func NewUnknownClass(pUnk *win32.IUnknown, scoped bool) *UnknownClass {
 	p := (*UnknownClass)(unsafe.Pointer(pUnk))
 	if scoped {
-		AddScopedComPtr(&p.IUnknown)
+		AddToScope(p)
 	}
 	return p
 }

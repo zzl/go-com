@@ -4,7 +4,7 @@
 
 GO-COM is a golang library that helps working with [COM](https://docs.microsoft.com/en-us/windows/win32/com/component-object-model--com--portal) easier.
 
-## What go-com provides?
+## What go-com provides
 
 * COM data type wrappers, such as HRESULT, BSTR, VARIANT, and SAFEARRAY. 
 * COM related helper functions

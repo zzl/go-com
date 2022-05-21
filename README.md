@@ -30,3 +30,7 @@ typelib(tlb) that describes the interfaces. With the tlb in place,
 you can use the [GO-TlbImp](https://github.com/zzl/go-tlbimp)
 tool to generate interface definitions and 
 event-listener/callback implementations.
+
+## Example projects
+* [go-word-automation](https://github.com/zzl/go-word-automation)
+* [go-excel-automation](https://github.com/zzl/go-excel-automation)

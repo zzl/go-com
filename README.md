@@ -34,3 +34,5 @@ event-listener/callback implementations.
 ## Example projects
 * [go-word-automation](https://github.com/zzl/go-word-automation)
 * [go-excel-automation](https://github.com/zzl/go-excel-automation)
+* [go-webview2](https://github.com/zzl/go-webview2)
+

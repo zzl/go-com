@@ -92,7 +92,7 @@ func (this *ReflectDispImpl) Invoke(dispIdMember int32, riid *syscall.GUID,
 	pExcepInfo *win32.EXCEPINFO, puArgErr *uint32) win32.HRESULT {
 	dispId := int(dispIdMember)
 	if dispId == 0 {
-		//?
+		return win32.E_NOTIMPL //?
 	} else if dispId > len(this.members) {
 		return win32.E_INVALIDARG
 	}
@@ -102,6 +102,16 @@ func (this *ReflectDispImpl) Invoke(dispIdMember int32, riid *syscall.GUID,
 		funcValue = member.CallFuncValue
 	} else if wFlags == uint16(win32.DISPATCH_PROPERTYGET) {
 		funcValue = member.GetFuncValue
+		if funcValue == nil {
+			if member.CallFuncValue != nil && pDispParams.CArgs == 0 {
+				pDispThis := (*win32.IDispatch)(this.ComObject.Pointer())
+				pDisp := NewBoundMethodDispatch(pDispThis, dispIdMember)
+				*(*ole.Variant)(pVarResult) = *ole.NewVariantDispatch(pDisp)
+				return win32.S_OK
+			} else {
+				return win32.E_NOTIMPL
+			}
+		}
 	} else {
 		funcValue = member.SetFuncValue
 	}
@@ -134,7 +144,11 @@ func (this *ReflectDispImpl) Invoke(dispIdMember int32, riid *syscall.GUID,
 	if numOut == 0 {
 		//
 	} else if numOut == 1 {
-		ole.SetVariantParam((*ole.Variant)(pVarResult), retVals[0].Interface(), nil)
+		var vResult ole.Variant
+		var unwrapActions ole.Actions
+		ole.SetVariantParam(&vResult, retVals[0].Interface(), &unwrapActions)
+		*(*ole.Variant)(pVarResult) = *vResult.Copy()
+		unwrapActions.Execute()
 	}
 	println("?")
 

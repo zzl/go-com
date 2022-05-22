@@ -37,6 +37,10 @@ type Initializable interface {
 	Initialize()
 }
 
+type ComObjFreeListener interface {
+	OnComObjFree()
+}
+
 func NewComObj[T any, PT ComObjConstraint[T]](impl win32.IUnknownInterface) *T {
 	if roa, ok := impl.(RealObjectAware); ok {
 		roa.SetRealObject(impl)
@@ -135,6 +139,9 @@ func (this *IUnknownComObj) Impl() win32.IUnknownInterface {
 }
 
 func (this *IUnknownComObj) free() {
+	if lsnr, ok := this.Impl().(ComObjFreeListener); ok {
+		lsnr.OnComObjFree()
+	}
 	impls[this.implSlot] = nil
 	freeImplSlots = append(freeImplSlots, this.implSlot)
 	bOk, err := win32.HeapFree(hHeap, 0, unsafe.Pointer(this))

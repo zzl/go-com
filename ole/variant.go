@@ -28,6 +28,7 @@ func NewVariant(value interface{}) *Variant {
 	case *win32.IDispatch:
 		return NewVariantDispatch(val)
 	case *win32.IUnknown:
+		val.AddRef() //ref added
 		v := &Variant{}
 		v.Vt = uint16(win32.VT_UNKNOWN)
 		*v.PunkVal() = val
@@ -37,7 +38,7 @@ func NewVariant(value interface{}) *Variant {
 	case int:
 		v := &Variant{}
 		if val >= math.MinInt32 && val <= math.MaxInt32 {
-			v.Vt = uint16(win32.VT_INT)
+			v.Vt = uint16(win32.VT_I4)
 			*v.IntVal() = int32(val)
 		} else {
 			v.Vt = uint16(win32.VT_I8)
@@ -47,7 +48,7 @@ func NewVariant(value interface{}) *Variant {
 	case uint:
 		v := &Variant{}
 		if val <= math.MaxUint32 {
-			v.Vt = uint16(win32.VT_UINT)
+			v.Vt = uint16(win32.VT_UI4)
 			*v.UintVal() = uint32(val)
 		} else {
 			v.Vt = uint16(win32.VT_UI8)
@@ -107,7 +108,7 @@ func NewVariant(value interface{}) *Variant {
 
 func (this *Variant) Copy() *Variant {
 	var v2 win32.VARIANT
-	win32.VariantCopy((*win32.VARIANT)(this), &v2)
+	win32.VariantCopy(&v2, (*win32.VARIANT)(this))
 	return (*Variant)(&v2)
 }
 
@@ -855,12 +856,13 @@ func (this *Variant) ToIDispatch() (*win32.IDispatch, error) {
 	return v.PdispValVal(), nil
 }
 
-func (this *Variant) ToIUnknonw() (*win32.IUnknown, error) {
+func (this *Variant) ToIUnknown() (*win32.IUnknown, error) {
 	v, vt := this, uint16(win32.VT_UNKNOWN)
 	if v.Vt != vt {
 		if v.Vt == vt|uint16(win32.VT_BYREF) {
 			return *v.PpunkValVal(), nil
 		}
+		//?
 		v = &Variant{}
 		hr := win32.VariantChangeType((*win32.VARIANT)(v), (*win32.VARIANT)(this), 0, vt)
 		//defer v.Clear()
@@ -1330,8 +1332,9 @@ type VariantDispatch struct { //24
 	_pad3 int64            //8@16
 }
 
-//addref?
+//ref added
 func NewVariantDispatch(pDisp *win32.IDispatch) *Variant {
+	pDisp.AddRef()
 	return (*Variant)(unsafe.Pointer(&VariantDispatch{
 		Vt: win32.VT_DISPATCH, Value: pDisp}))
 }
@@ -1341,10 +1344,20 @@ func Var(value interface{}) Variant {
 	return *v
 }
 
+func NewVar(value interface{}) *Variant {
+	return NewVariant(value)
+}
+
 func VarScoped(value interface{}) Variant {
 	v := NewVariant(value)
 	com.CurrentScope.AddVarIfNeeded((*win32.VARIANT)(v))
 	return *v
+}
+
+func NewVarScoped(value interface{}) *Variant {
+	v := NewVariant(value)
+	com.CurrentScope.AddVarIfNeeded((*win32.VARIANT)(v))
+	return v
 }
 
 func CheckVarType(value interface{}) win32.VARENUM {

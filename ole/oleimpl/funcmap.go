@@ -22,6 +22,14 @@ type FuncMapDispImpl struct {
 	funcs  []VariantFunc
 	pNames []string
 	props  []VariantProp
+
+	OnFinalize func()
+}
+
+func (this *FuncMapDispImpl) OnComObjFree() {
+	if this.OnFinalize != nil {
+		this.OnFinalize()
+	}
 }
 
 func (this *FuncMapDispImpl) GetIDsOfNames(riid *syscall.GUID, rgszNames *win32.PWSTR,
@@ -33,13 +41,13 @@ func (this *FuncMapDispImpl) GetIDsOfNames(riid *syscall.GUID, rgszNames *win32.
 	name = strings.ToLower(name)
 	for n, fName := range this.fNames {
 		if fName == name {
-			*rgDispId = int32(n)
+			*rgDispId = int32(n) + 1
 			return win32.S_OK
 		}
 	}
 	for n, pName := range this.pNames {
 		if pName == name {
-			*rgDispId = int32(n + len(this.fNames))
+			*rgDispId = int32(n+len(this.fNames)) + 1
 			return win32.S_OK
 		}
 	}
@@ -51,21 +59,32 @@ func (this *FuncMapDispImpl) Invoke(dispIdMember int32, riid *syscall.GUID,
 	pExcepInfo *win32.EXCEPINFO, puArgErr *uint32) win32.HRESULT {
 
 	vArgs, _ := ole.ProcessInvokeArgs(pDispParams, 9)
-	if wFlags == uint16(win32.DISPATCH_METHOD) {
-		funcIdx := int(dispIdMember)
-		if funcIdx < len(this.funcs) {
-			pvRet := this.funcs[funcIdx](vArgs...)
-			if pVarResult != nil && pvRet != nil {
-				*pVarResult = win32.VARIANT(*pvRet)
+
+	funcIdx := int(dispIdMember) - 1
+	if funcIdx >= 0 && funcIdx < len(this.funcs) {
+		if wFlags == uint16(win32.DISPATCH_PROPERTYGET) { //
+			if pDispParams.CArgs == 0 {
+				pDispThis := (*win32.IDispatch)(this.ComObject.Pointer())
+				pDisp := NewBoundMethodDispatch(pDispThis, dispIdMember)
+				*(*ole.Variant)(pVarResult) = *ole.NewVariantDispatch(pDisp)
+				return win32.S_OK
+			} else {
+				return win32.E_NOTIMPL
 			}
-			return win32.S_OK
 		}
-	} else if propIdx := int(dispIdMember) - len(this.funcs); propIdx >= 0 && propIdx < len(this.props) {
+
+		pvRet := this.funcs[funcIdx](vArgs...)
+		if pVarResult != nil && pvRet != nil {
+			*pVarResult = win32.VARIANT(*pvRet)
+		}
+		return win32.S_OK
+	} else if propIdx := funcIdx - len(this.funcs); propIdx >= 0 && propIdx < len(this.props) {
 		prop := this.props[propIdx]
 		var f VariantFunc
-		if wFlags == uint16(win32.DISPATCH_PROPERTYGET) && prop.Get != nil {
+		if wFlags == uint16(win32.DISPATCH_PROPERTYGET) {
 			f = prop.Get
-		} else {
+		} else if wFlags == uint16(win32.DISPATCH_PROPERTYPUT) ||
+			wFlags == uint16(win32.DISPATCH_PROPERTYPUTREF) {
 			f = prop.Set
 		}
 		if f == nil {
@@ -81,8 +100,9 @@ func (this *FuncMapDispImpl) Invoke(dispIdMember int32, riid *syscall.GUID,
 	return win32.E_NOTIMPL
 }
 
+//
 func NewFuncMapDispatch(funcMap map[string]VariantFunc,
-	propMap map[string]VariantProp) *win32.IDispatch {
+	propMap map[string]VariantProp, onFinalize func()) *win32.IDispatch {
 	var fNames []string
 	var funcs []VariantFunc
 	for name, f := range funcMap {
@@ -100,6 +120,7 @@ func NewFuncMapDispatch(funcMap map[string]VariantFunc,
 		funcs:  funcs,
 		pNames: pNames,
 		props:  props,
+		OnFinalize: onFinalize,
 	})
 	return pDisp
 }

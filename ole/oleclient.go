@@ -12,6 +12,10 @@ type IDispatchProvider interface {
 	GetIDispatch(addRef bool) *win32.IDispatch
 }
 
+type OleClientProvider interface {
+	GetOleClient() *OleClient
+}
+
 type OleClient struct {
 	*win32.IDispatch
 }
@@ -21,7 +25,9 @@ func CreateClient(clsid *win32.CLSID) (*OleClient, error) {
 	hr := win32.CoCreateInstance(clsid, nil, win32.CLSCTX_LOCAL_SERVER,
 		&win32.IID_IDispatch, unsafe.Pointer(&pDisp))
 	if win32.FAILED(hr) {
-		return nil, com.NewError(hr)
+		err := com.NewError(hr)
+		com.SetLastError(err)
+		return nil, err
 	}
 	return &OleClient{pDisp}, nil
 }
@@ -35,7 +41,7 @@ func (this *OleClient) GetOleClient() *OleClient {
 }
 
 func (this *OleClient) PropPut(dispId win32.DISPID,
-	reqArgs []interface{}, optArgs ...interface{}) win32.HRESULT {
+	reqArgs []interface{}, optArgs ...interface{}) error {
 
 	dispParams, unwrapActions := this.buildDispParams(optArgs, reqArgs)
 
@@ -46,15 +52,17 @@ func (this *OleClient) PropPut(dispId win32.DISPID,
 
 	hr := this.Invoke(dispId, &win32.IID_NULL, win32.LOCALE_INVARIANT,
 		uint16(win32.DISPATCH_PROPERTYPUT), &dispParams, nil, nil, nil)
-	if win32.FAILED(hr) {
-		println("??" + win32.HRESULT_ToString(hr))
-	}
 	unwrapActions.Execute()
-	return hr
+	if win32.FAILED(hr) {
+		err := com.NewError(hr)
+		com.SetLastError(err)
+		return err
+	}
+	return nil
 }
 
 func (this *OleClient) PropPutRef(dispId win32.DISPID,
-	reqArgs []interface{}, optArgs ...interface{}) win32.HRESULT {
+	reqArgs []interface{}, optArgs ...interface{}) error {
 
 	dispParams, unwrapActions := this.buildDispParams(optArgs, reqArgs)
 
@@ -64,41 +72,48 @@ func (this *OleClient) PropPutRef(dispId win32.DISPID,
 
 	hr := this.Invoke(dispId, &win32.IID_NULL, win32.LOCALE_INVARIANT,
 		uint16(win32.DISPATCH_PROPERTYPUTREF), &dispParams, nil, nil, nil)
-	if win32.FAILED(hr) {
-		println("??" + win32.HRESULT_ToString(hr))
-	}
 	unwrapActions.Execute()
-	return hr
+	if win32.FAILED(hr) {
+		err := com.NewError(hr)
+		com.SetLastError(err)
+		return err
+	}
+	return nil
 }
 
 func (this *OleClient) PropGet(dispId win32.DISPID,
-	reqArgs []interface{}, optArgs ...interface{}) *Variant {
+	reqArgs []interface{}, optArgs ...interface{}) (*Variant, error) {
 
 	dispParams, unwrapActions := this.buildDispParams(optArgs, reqArgs)
 
 	var result Variant
 	hr := this.Invoke(dispId, &win32.IID_NULL, win32.LOCALE_INVARIANT,
 		uint16(win32.DISPATCH_PROPERTYGET), &dispParams, (*win32.VARIANT)(&result), nil, nil)
-	if win32.FAILED(hr) {
-		println("??" + win32.HRESULT_ToString(hr))
-	}
 	unwrapActions.Execute()
-	return &result
+	if win32.FAILED(hr) {
+		err := com.NewError(hr)
+		com.SetLastError(err)
+		return &result, err
+	}
+	return &result, nil
 }
 
 func (this *OleClient) Call(dispId win32.DISPID,
-	reqArgs []interface{}, optArgs ...interface{}) *Variant {
+	reqArgs []interface{}, optArgs ...interface{}) (*Variant, error) {
 
 	dispParams, unwrapActions := this.buildDispParams(optArgs, reqArgs)
 	var result Variant
 
 	hr := this.Invoke(dispId, &win32.IID_NULL, win32.LOCALE_INVARIANT,
 		uint16(win32.DISPATCH_METHOD), &dispParams, (*win32.VARIANT)(&result), nil, nil)
-	if win32.FAILED(hr) {
-		println("? " + win32.HRESULT_ToString(hr))
-	}
+
 	unwrapActions.Execute()
-	return &result
+	if win32.FAILED(hr) {
+		err := com.NewError(hr)
+		com.SetLastError(err)
+		return &result, err
+	}
+	return &result, nil
 }
 
 func (this *OleClient) buildDispParams(optArgs []interface{},
@@ -289,7 +304,7 @@ func SetVariantParam(v *Variant, value interface{}, unwrapActions *Actions) {
 		psa := val.SafeArrayPtr()
 		var vt uint16
 		win32.SafeArrayGetVartype(psa, &vt)
-		v.Vt = uint16(win32.VT_ARRAY)|vt
+		v.Vt = uint16(win32.VT_ARRAY) | vt
 		*v.Parray() = psa
 	case *win32.SAFEARRAY:
 		v.Vt = uint16(win32.VT_ARRAY)

@@ -106,6 +106,10 @@ func NewVariant(value interface{}) *Variant {
 	}
 }
 
+func (this *Variant) AsVARIANT() *win32.VARIANT {
+	return (*win32.VARIANT)(this)
+}
+
 func (this *Variant) Copy() *Variant {
 	var v2 win32.VARIANT
 	win32.VariantCopy(&v2, (*win32.VARIANT)(this))
@@ -460,6 +464,11 @@ func (this *Variant) ToUint16() (uint16, error) {
 }
 
 //
+func (this *Variant) Int32() int32 {
+	result, _ := this.ToInt32()
+	return result
+}
+
 func (this *Variant) ToInt32() (int32, error) {
 	vObj := this.Value()
 	switch v := vObj.(type) {
@@ -522,6 +531,11 @@ func (this *Variant) ToInt32() (int32, error) {
 		}
 	}
 	return 0, com.NewError(win32.DISP_E_TYPEMISMATCH)
+}
+
+func (this *Variant) Uint32() uint32 {
+	result, _ := this.ToUint32()
+	return result
 }
 
 func (this *Variant) ToUint32() (uint32, error) {
@@ -629,9 +643,19 @@ func (this *Variant) ToInt64() (int64, error) {
 	return 0, com.NewError(win32.DISP_E_TYPEMISMATCH)
 }
 
+func (this *Variant) Int() int {
+	result, _ := this.ToInt()
+	return result
+}
+
 func (this *Variant) ToInt() (int, error) {
 	ret, err := this.ToInt64()
 	return int(ret), err
+}
+
+func (this *Variant) Uint64() uint64 {
+	result, _ := this.ToUint64()
+	return result
 }
 
 func (this *Variant) ToUint64() (uint64, error) {
@@ -801,6 +825,11 @@ func (this *Variant) ToCurrency() (Currency, error) {
 	return Currency(v.CyValVal()), nil
 }
 
+func (this *Variant) String() string {
+	result, _ := this.ToString()
+	return result
+}
+
 func (this *Variant) ToString() (string, error) {
 	vObj := this.Value()
 	switch v := vObj.(type) {
@@ -840,37 +869,53 @@ func (this *Variant) ToString() (string, error) {
 	return "", nil
 }
 
+func (this *Variant) IDispatch() *win32.IDispatch {
+	result, _ := this.ToIDispatch()
+	return result
+}
+
 func (this *Variant) ToIDispatch() (*win32.IDispatch, error) {
 	v, vt := this, uint16(win32.VT_DISPATCH)
-	if v.Vt != vt {
-		if v.Vt == vt|uint16(win32.VT_BYREF) {
-			return *v.PpdispValVal(), nil
-		}
-		v = &Variant{}
-		hr := win32.VariantChangeType((*win32.VARIANT)(v), (*win32.VARIANT)(this), 0, vt)
-		//defer v.Clear()
-		if win32.FAILED(hr) {
-			return nil, com.NewError(hr)
-		}
+	if v.Vt == vt {
+		pDisp := v.PdispValVal()
+		//pDisp.AddRef()
+		return pDisp, nil
 	}
-	return v.PdispValVal(), nil
+	if v.Vt == vt|uint16(win32.VT_BYREF) {
+		pDisp := *v.PpdispValVal()
+		//pDisp.AddRef()
+		return pDisp, nil
+	} else {
+		//var v2 win32.VARIANT
+		//hr := win32.VariantChangeType(&v2, (*win32.VARIANT)(this), 0, vt)
+		//if win32.FAILED(hr) {
+		//	return nil, com.NewError(hr)
+		//}
+		//return v2.PdispValVal(), nil
+		return nil, com.NewError(win32.DISP_E_BADVARTYPE)
+	}
 }
 
 func (this *Variant) ToIUnknown() (*win32.IUnknown, error) {
 	v, vt := this, uint16(win32.VT_UNKNOWN)
-	if v.Vt != vt {
-		if v.Vt == vt|uint16(win32.VT_BYREF) {
-			return *v.PpunkValVal(), nil
-		}
-		//?
-		v = &Variant{}
-		hr := win32.VariantChangeType((*win32.VARIANT)(v), (*win32.VARIANT)(this), 0, vt)
-		//defer v.Clear()
-		if win32.FAILED(hr) {
-			return nil, com.NewError(hr)
-		}
+	if v.Vt == vt {
+		pUnk := v.PunkValVal()
+		//pUnk.AddRef()
+		return pUnk, nil
 	}
-	return v.PunkValVal(), nil
+	if v.Vt == vt|uint16(win32.VT_BYREF) {
+		pUnk := *v.PpunkValVal()
+		//pUnk.AddRef()
+		return pUnk, nil
+	} else {
+		//var v2 win32.VARIANT
+		//hr := win32.VariantChangeType(&v2, (*win32.VARIANT)(this), 0, vt)
+		//if win32.FAILED(hr) {
+		//	return nil, com.NewError(hr)
+		//}
+		//return v2.PunkValVal(), nil
+		return nil, com.NewError(win32.DISP_E_BADVARTYPE)
+	}
 }
 
 //
@@ -941,17 +986,20 @@ func (this *Variant) ToDecimal() (Decimal, error) {
 	return Decimal(v.DecValVal()), nil
 }
 
+//no copy
 func (this *Variant) ToArray() (*win32.SAFEARRAY, error) {
 	v, vt := this, uint16(win32.VT_ARRAY)
 	if v.Vt != vt {
 		if v.Vt == vt|uint16(win32.VT_BYREF) {
 			return *v.PparrayVal(), nil
+		} else {
+			return nil, com.NewError(win32.DISP_E_BADVARTYPE)
 		}
-		v = &Variant{}
-		hr := win32.VariantChangeType((*win32.VARIANT)(v), (*win32.VARIANT)(this), 0, vt)
-		if win32.FAILED(hr) {
-			return nil, com.NewError(hr)
-		}
+		//v = &Variant{}
+		//hr := win32.VariantChangeType((*win32.VARIANT)(v), (*win32.VARIANT)(this), 0, vt)
+		//if win32.FAILED(hr) {
+		//	return nil, com.NewError(hr)
+		//}
 	}
 	return v.ParrayVal(), nil
 }
@@ -1350,13 +1398,13 @@ func NewVar(value interface{}) *Variant {
 
 func VarScoped(value interface{}) Variant {
 	v := NewVariant(value)
-	com.CurrentScope.AddVarIfNeeded((*win32.VARIANT)(v))
+	com.AddToScope(v)
 	return *v
 }
 
 func NewVarScoped(value interface{}) *Variant {
 	v := NewVariant(value)
-	com.CurrentScope.AddVarIfNeeded((*win32.VARIANT)(v))
+	com.AddToScope(v)
 	return v
 }
 

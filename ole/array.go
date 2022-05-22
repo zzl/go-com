@@ -41,11 +41,11 @@ func NewArrayWithBounds[T any](bounds []win32.SAFEARRAYBOUND, scoped bool) Array
 }
 
 func NewArrayWithVt[T any](varType win32.VARENUM, bounds []win32.SAFEARRAYBOUND, scoped bool) Array[T] {
-	Psa := win32.SafeArrayCreate(uint16(varType), uint32(len(bounds)), &bounds[0])
-	a := Array[T]{Psa}
+	psa := win32.SafeArrayCreate(uint16(varType), uint32(len(bounds)), &bounds[0])
+	a := Array[T]{psa}
 	a.lock()
 	if scoped {
-		com.CurrentScope.AddArray(Psa)
+		com.AddToScope(psa)
 	}
 	return a
 }

@@ -2,8 +2,8 @@ package com
 
 import (
 	"github.com/zzl/go-win32api/win32"
-	"unsafe"
 	"log"
+	"unsafe"
 )
 
 type scopedObject struct {
@@ -11,18 +11,19 @@ type scopedObject struct {
 	Type int //0:com interface, 1:bstr, 2:*variant, 3:safearray
 }
 
-var CurrentScope *Scope
+//var CurrentScope *Scope
 
 type Scope struct {
-	scopedObjs []scopedObject
+	scopedObjs  []scopedObject
 	ParentScope *Scope
 }
 
 func NewScope() *Scope {
+	context := GetContext()
 	scope := &Scope{
-		ParentScope: CurrentScope,
+		ParentScope: context.CurrentScope,
 	}
-	CurrentScope = scope
+	context.CurrentScope = scope
 	return scope
 }
 
@@ -60,23 +61,34 @@ func (this *Scope) AddArray(psa *win32.SAFEARRAY) {
 	this.scopedObjs = append(this.scopedObjs, scopedObject{Ptr: unsafe.Pointer(psa), Type: 3})
 }
 
+type VariantCompatible interface {
+	AsVARIANT() *win32.VARIANT
+}
+
 func AddToScope(value interface{}, scope ...*Scope) {
 	var s *Scope
 	if len(scope) != 0 {
 		s = scope[0]
 	} else {
-		if CurrentScope == nil {
+		currentScope := GetContext().CurrentScope
+		if currentScope == nil {
 			log.Panic("no current scope")
 		}
-		s = CurrentScope
+		s = currentScope
 	}
 	switch v := value.(type) {
 	case win32.IUnknownObject:
 		s.Add(unsafe.Pointer(v.GetIUnknown()))
 	case win32.BSTR:
 		s.AddBstr(v)
+	case BStr:
+		s.AddBstr(v.bs)
+	case *win32.VARIANT:
+		s.AddVarIfNeeded(v)
 	case win32.VARIANT:
 		s.AddVarIfNeeded(&v)
+	case VariantCompatible:
+		s.AddVarIfNeeded(v.AsVARIANT())
 	case *win32.SAFEARRAY:
 		s.AddArray(v)
 	default:
@@ -92,7 +104,7 @@ func WithScope(action func()) {
 
 func (this *Scope) Leave() {
 	this.Clear()
-	CurrentScope = this.ParentScope
+	GetContext().CurrentScope = this.ParentScope
 }
 
 func (this *Scope) Clear() {

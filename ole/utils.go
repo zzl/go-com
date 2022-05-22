@@ -1,21 +1,10 @@
 package ole
 
 import (
-	"runtime"
 	"unsafe"
 
 	"github.com/zzl/go-win32api/win32"
 )
-
-func Initialize() {
-	runtime.LockOSThread()
-	win32.OleInitialize(nil)
-}
-
-func Uninitialize() {
-	runtime.GC()
-	win32.OleUninitialize()
-}
 
 func ProcessInvokeArgs(pDispParams *win32.DISPPARAMS, formalArgc int) ([]*Variant, []int) {
 	if formalArgc == 0 {

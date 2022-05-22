@@ -1,6 +1,7 @@
 package com
 
 import (
+	"syscall"
 	"unsafe"
 
 	"github.com/zzl/go-win32api/win32"
@@ -8,6 +9,10 @@ import (
 
 type Disposable interface {
 	Dispose()
+}
+
+type IIDProvider interface {
+	IID() *syscall.GUID
 }
 
 type UnknownClass struct {

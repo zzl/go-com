@@ -1,7 +1,6 @@
 package com
 
 import (
-	"github.com/zzl/go-com/_bak/2/com"
 	"github.com/zzl/go-win32api/win32"
 	"syscall"
 )
@@ -57,7 +56,7 @@ func SetLastError(err Error) {
 	var pEi *win32.IErrorInfo
 	hr := win32.GetErrorInfo(0, &pEi)
 	if win32.SUCCEEDED(hr) {
-		var bs com.BStr
+		var bs BStr
 		pEi.GetDescription(bs.PBSTR())
 		info.Description = bs.ToStringAndFree()
 		pEi.GetGUID(&info.IID)

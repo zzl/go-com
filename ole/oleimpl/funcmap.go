@@ -3,6 +3,7 @@ package oleimpl
 import (
 	"strings"
 	"syscall"
+	"unsafe"
 
 	"github.com/zzl/go-com/ole"
 	"github.com/zzl/go-win32api/win32"
@@ -64,7 +65,7 @@ func (this *FuncMapDispImpl) Invoke(dispIdMember int32, riid *syscall.GUID,
 	if funcIdx >= 0 && funcIdx < len(this.funcs) {
 		if wFlags == uint16(win32.DISPATCH_PROPERTYGET) { //
 			if pDispParams.CArgs == 0 {
-				pDispThis := (*win32.IDispatch)(this.ComObject.Pointer())
+				pDispThis := (*win32.IDispatch)(unsafe.Pointer(this.ComObj.GetIUnknownComObj()))
 				pDisp := NewBoundMethodDispatch(pDispThis, dispIdMember)
 				*(*ole.Variant)(pVarResult) = *ole.NewVariantDispatch(pDisp)
 				return win32.S_OK
@@ -116,10 +117,10 @@ func NewFuncMapDispatch(funcMap map[string]VariantFunc,
 		props = append(props, p)
 	}
 	pDisp := ole.NewIDispatch(&FuncMapDispImpl{
-		fNames: fNames,
-		funcs:  funcs,
-		pNames: pNames,
-		props:  props,
+		fNames:     fNames,
+		funcs:      funcs,
+		pNames:     pNames,
+		props:      props,
 		OnFinalize: onFinalize,
 	})
 	return pDisp

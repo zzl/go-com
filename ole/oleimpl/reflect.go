@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"strings"
 	"syscall"
+	"unsafe"
 
 	"github.com/zzl/go-com/ole"
 
@@ -104,7 +105,7 @@ func (this *ReflectDispImpl) Invoke(dispIdMember int32, riid *syscall.GUID,
 		funcValue = member.GetFuncValue
 		if funcValue == nil {
 			if member.CallFuncValue != nil && pDispParams.CArgs == 0 {
-				pDispThis := (*win32.IDispatch)(this.ComObject.Pointer())
+				pDispThis := (*win32.IDispatch)(unsafe.Pointer(this.ComObj.GetIUnknownComObj()))
 				pDisp := NewBoundMethodDispatch(pDispThis, dispIdMember)
 				*(*ole.Variant)(pVarResult) = *ole.NewVariantDispatch(pDisp)
 				return win32.S_OK

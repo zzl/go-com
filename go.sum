@@ -1,4 +1,2 @@
-github.com/zzl/go-win32api v1.1.2 h1:7ne3H9ktETh5RaI1mgsPL6a7tMzz2uupM+KqaBZYYnA=
-github.com/zzl/go-win32api v1.1.2/go.mod h1:iWVjU/KzuwzqGpgBZdQ6Z4JqFXeSPIzantVIkcyD4b4=
 golang.org/x/sys v0.0.0-20220330033206-e17cdc41300f h1:rlezHXNlxYWvBCzNses9Dlc7nGFaNMJeqLolcmQSSZY=
 golang.org/x/sys v0.0.0-20220330033206-e17cdc41300f/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=

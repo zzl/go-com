@@ -15,7 +15,7 @@ type ISequentialStreamImpl struct {
 
 func (this *ISequentialStreamImpl) QueryInterface(riid *syscall.GUID, ppvObject unsafe.Pointer) win32.HRESULT {
 	if *riid == win32.IID_ISequentialStream {
-		//*(**com.IUnknownComObj)(ppvObject) = this.ComObject
+		//*(**com.IUnknownComObj)(ppvObject) = this.ComObj
 		this.AssignPpvObject(ppvObject)
 		this.AddRef()
 		return win32.S_OK

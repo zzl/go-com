@@ -15,17 +15,12 @@ var impls []win32.IUnknownInterface
 var freeImplSlots []int32
 var hHeap win32.HANDLE
 
-const ComObjSize = unsafe.Sizeof(IUnknownComObj{})
-
 func init() {
 	hHeap, _ = win32.GetProcessHeap()
 }
 
 type ComObjConstraint[T any] interface {
-	GetVtbl() *win32.IUnknownVtbl
-	AddRef() uintptr
-	Release() uintptr
-	Pointer() unsafe.Pointer
+	ComObjInterface
 	*T
 }
 
@@ -37,7 +32,12 @@ type Initializable interface {
 	Initialize()
 }
 
-type ComObjFreeListener interface {
+type Finalizable interface {
+	Finalize()
+}
+
+type ComObjLifecycleAware interface {
+	OnComObjCreate()
 	OnComObjFree()
 }
 
@@ -47,20 +47,22 @@ func NewComObj[T any, PT ComObjConstraint[T]](impl win32.IUnknownInterface) *T {
 	}
 
 	size := unsafe.Sizeof(*(*T)(nil))
+	//println("SIZE of comobj:", size)
 	p := Malloc(size)
 	pComObj := (*T)(p)
 
 	comObj := PT(pComObj)
 	pUnknownComObj := (*IUnknownComObj)(p)
-	pUnknownComObj.LpVtbl = comObj.GetVtbl()
+	pUnknownComObj.LpVtbl = comObj.GetVtbl() //
 	pUnknownComObj.implSlot = AddImpl(impl)
 	pUnknownComObj.cRef = 1
 
 	//
 	impl.(comObjAware).SetComObj(comObj)
+	initializeComObj(comObj)
 
-	if initializable, ok := any(pComObj).(Initializable); ok {
-		initializable.Initialize()
+	if lsnr, ok := impl.(ComObjLifecycleAware); ok {
+		lsnr.OnComObjCreate()
 	}
 
 	return pComObj
@@ -89,24 +91,56 @@ func AddImpl(impl win32.IUnknownInterface) int32 {
 type ComObjInterface interface {
 	AddRef() uintptr
 	Release() uintptr
-	Pointer() unsafe.Pointer
+
+	GetVtbl() *win32.IUnknownVtbl
+	GetIUnknownComObj() *IUnknownComObj
+	GetSubComObjs() []ComObjInterface
+	IID() *syscall.GUID
+	AssignPpvObject(ppvObject unsafe.Pointer)
 }
 
 type comObjAware interface {
 	SetComObj(obj ComObjInterface)
+	GetComObj() ComObjInterface
 }
 
 //
 type IUnknownImpl struct {
-	ComObject ComObjInterface
+	ComObj ComObjInterface
+}
+
+func (this *IUnknownImpl) OnComObjCreate() {
+	//
 }
 
 func (this *IUnknownImpl) SetComObj(obj ComObjInterface) {
-	this.ComObject = obj
+	this.ComObj = obj
 }
 
-func (this *IUnknownImpl) AssignPpvObject(ppvObject unsafe.Pointer) {
-	*(*unsafe.Pointer)(ppvObject) = this.ComObject.Pointer()
+func (this *IUnknownImpl) GetComObj() ComObjInterface {
+	return this.ComObj
+}
+
+func (this *IUnknownImpl) AssignPpvObject(ppvObject unsafe.Pointer, iid ...*syscall.GUID) bool {
+	if len(iid) == 0 {
+		this.ComObj.AssignPpvObject(ppvObject)
+		return true
+	}
+	theIid := *iid[0]
+	var assigned bool
+	if theIid == *this.ComObj.IID() {
+		this.ComObj.AssignPpvObject(ppvObject)
+		assigned = true
+	} else {
+		for _, subComObj := range this.ComObj.GetSubComObjs() {
+			if *subComObj.IID() == theIid {
+				subComObj.AssignPpvObject(ppvObject)
+				assigned = true
+				break
+			}
+		}
+	}
+	return assigned
 }
 
 func (this *IUnknownImpl) QueryInterface(riid *syscall.GUID, ppvObject unsafe.Pointer) win32.HRESULT {
@@ -115,33 +149,81 @@ func (this *IUnknownImpl) QueryInterface(riid *syscall.GUID, ppvObject unsafe.Po
 		this.AddRef()
 		return win32.S_OK
 	}
+	//println(win32.GuidToStr(riid))
+	if this.AssignPpvObject(ppvObject, riid) {
+		this.AddRef()
+		return win32.S_OK
+	}
 	return win32.E_NOINTERFACE
 }
 
 func (this *IUnknownImpl) AddRef() uint32 {
-	return uint32(this.ComObject.AddRef())
+	return uint32(this.ComObj.AddRef())
 }
 
 func (this *IUnknownImpl) Release() uint32 {
-	return uint32(this.ComObject.Release())
+	return uint32(this.ComObj.Release())
 }
 
-//
+func (this *IUnknownImpl) OnComObjFree() {
+	//
+}
+
 type IUnknownComObj struct {
-	LpVtbl *win32.IUnknownVtbl
-	cRef   int32
-	//Impl   win32.IUnknownInterface
+	LpVtbl   *win32.IUnknownVtbl
+	cRef     int32
 	implSlot int32
+	Parent   *IUnknownComObj
+}
+
+func (this *IUnknownComObj) AssignPpvObject(ppvObject unsafe.Pointer) {
+	*(*unsafe.Pointer)(ppvObject) = unsafe.Pointer(this)
+}
+
+func (this *IUnknownComObj) IID() *syscall.GUID {
+	return &win32.IID_IUnknown
+}
+
+func (this *IUnknownComObj) GetIUnknownComObj() *IUnknownComObj {
+	return this
+}
+
+func initializeComObj(comObj ComObjInterface) {
+	if initializable, ok := comObj.(Initializable); ok {
+		initializable.Initialize()
+	}
+	pComObj := comObj.GetIUnknownComObj()
+	for _, subComObj := range comObj.GetSubComObjs() {
+		pSubComObj := subComObj.GetIUnknownComObj()
+		pSubComObj.Parent = pComObj
+		pSubComObj.LpVtbl = subComObj.GetVtbl()
+		pSubComObj.implSlot = pComObj.implSlot //?
+		initializeComObj(pSubComObj)
+	}
+}
+
+func (this *IUnknownComObj) GetSubComObjs() []ComObjInterface {
+	return nil
+}
+
+func (this *IUnknownComObj) SetVtbl(vtbl *win32.IUnknownVtbl) {
+	this.LpVtbl = vtbl
 }
 
 func (this *IUnknownComObj) Impl() win32.IUnknownInterface {
-	return impls[this.implSlot] //GetImpl(this.implSlot)
+	return impls[this.implSlot]
 }
 
 func (this *IUnknownComObj) free() {
-	if lsnr, ok := this.Impl().(ComObjFreeListener); ok {
+	impl := this.Impl()
+	if lsnr, ok := impl.(ComObjLifecycleAware); ok {
 		lsnr.OnComObjFree()
 	}
+	comObj := impl.(comObjAware).GetComObj()
+	if finalizable, ok := comObj.(Finalizable); ok {
+		finalizable.Finalize()
+	}
+	//
 	impls[this.implSlot] = nil
 	freeImplSlots = append(freeImplSlots, this.implSlot)
 	bOk, err := win32.HeapFree(hHeap, 0, unsafe.Pointer(this))
@@ -151,15 +233,24 @@ func (this *IUnknownComObj) free() {
 }
 
 func (this *IUnknownComObj) QueryInterface(riid *syscall.GUID, ppvObject unsafe.Pointer) uintptr {
+	if this.Parent != nil {
+		return this.Parent.QueryInterface(riid, ppvObject)
+	}
 	return (uintptr)(this.Impl().QueryInterface(riid, ppvObject))
 }
 
 func (this *IUnknownComObj) AddRef() uintptr {
+	if this.Parent != nil {
+		return this.Parent.AddRef()
+	}
 	cRef := atomic.AddInt32(&this.cRef, 1)
 	return uintptr(cRef)
 }
 
 func (this *IUnknownComObj) Release() uintptr {
+	if this.Parent != nil {
+		return this.Parent.Release()
+	}
 	cRef := atomic.AddInt32(&this.cRef, -1)
 	if cRef == 0 {
 		this.free()
@@ -168,6 +259,9 @@ func (this *IUnknownComObj) Release() uintptr {
 }
 
 func (this *IUnknownComObj) IUnknown() *win32.IUnknown {
+	if this.Parent != nil {
+		return this.Parent.IUnknown()
+	}
 	return (*win32.IUnknown)(unsafe.Pointer(this))
 }
 
@@ -192,49 +286,4 @@ func (this *IUnknownComObj) BuildVtbl(lock bool) *win32.IUnknownVtbl {
 
 func (this *IUnknownComObj) GetVtbl() *win32.IUnknownVtbl {
 	return this.BuildVtbl(true)
-}
-
-func (this *IUnknownComObj) Pointer() unsafe.Pointer {
-	return unsafe.Pointer(this)
-}
-
-//
-type SubComObj struct {
-	LpVtbl *win32.IUnknownVtbl
-	Parent *IUnknownComObj
-}
-
-func (this *SubComObj) QueryInterface(riid *syscall.GUID, ppvObject unsafe.Pointer) uintptr {
-	return this.Parent.QueryInterface(riid, ppvObject)
-}
-
-func (this *SubComObj) AddRef() uintptr {
-	return this.Parent.AddRef()
-}
-
-func (this *SubComObj) Release() uintptr {
-	return this.Parent.Release()
-}
-
-var _pSubIUnknownVtbl *win32.IUnknownVtbl
-
-func (this *SubComObj) BuildVtbl(lock bool) *win32.IUnknownVtbl {
-	if lock {
-		MuVtbl.Lock()
-		defer MuVtbl.Unlock()
-	}
-	if _pSubIUnknownVtbl != nil {
-		return _pSubIUnknownVtbl
-	}
-	_pSubIUnknownVtbl = (*win32.IUnknownVtbl)(Malloc(unsafe.Sizeof(*_pIUnknownVtbl)))
-	*_pSubIUnknownVtbl = win32.IUnknownVtbl{
-		QueryInterface: syscall.NewCallback((*SubComObj).QueryInterface),
-		AddRef:         syscall.NewCallback((*SubComObj).AddRef),
-		Release:        syscall.NewCallback((*SubComObj).Release),
-	}
-	return _pSubIUnknownVtbl
-}
-
-func (this *SubComObj) Pointer() unsafe.Pointer {
-	return unsafe.Pointer(this)
 }

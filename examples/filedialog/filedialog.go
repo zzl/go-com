@@ -12,20 +12,6 @@ type IFileDialogEventsInterfaceImpl struct {
 	com.IUnknownImpl
 }
 
-func (this *IFileDialogEventsInterfaceImpl) QueryInterface(riid *syscall.GUID, ppvObject unsafe.Pointer) win32.HRESULT {
-	if *riid == win32.IID_IFileDialogEvents {
-		this.AssignPpvObject(ppvObject)
-		this.AddRef()
-		return win32.S_OK
-	}
-	if *riid == win32.IID_IFileDialogControlEvents {
-		*(*unsafe.Pointer)(ppvObject) = this.ComObject.(*IFileDialogEventsComObj).controlEventsComObj.Pointer()
-		this.AddRef()
-		return win32.S_OK
-	}
-	return this.IUnknownImpl.QueryInterface(riid, ppvObject)
-}
-
 // IFileDialogEvents
 func (this *IFileDialogEventsInterfaceImpl) OnFileOk(pfd *win32.IFileDialog) win32.HRESULT {
 	return win32.E_NOTIMPL
@@ -77,13 +63,10 @@ func (this *IFileDialogEventsInterfaceImpl) OnControlActivating(pfdc *win32.IFil
 //
 type IFileDialogEventsComObj struct {
 	com.IUnknownComObj
-	//
-	controlEventsComObj IFileDialogControlEventsComObj
 }
 
-func (this *IFileDialogEventsComObj) Initialize() {
-	this.controlEventsComObj.LpVtbl = this.controlEventsComObj.GetVtbl()
-	this.controlEventsComObj.Parent = &this.IUnknownComObj
+func (this *IFileDialogEventsComObj) IID() *syscall.GUID {
+	return &win32.IID_IFileDialogEvents
 }
 
 func (this *IFileDialogEventsComObj) impl() win32.IFileDialogEventsInterface {
@@ -155,16 +138,15 @@ func (this *IFileDialogEventsComObj) GetVtbl() *win32.IUnknownVtbl {
 
 //
 type IFileDialogControlEventsComObj struct {
-	com.SubComObj
+	com.IUnknownComObj
 }
 
-func (this *IFileDialogControlEventsComObj) IFileDialogControlEvents() *win32.IFileDialogControlEvents {
-	return (*win32.IFileDialogControlEvents)(unsafe.Pointer(this))
+func (this *IFileDialogControlEventsComObj) IID() *syscall.GUID {
+	return &win32.IID_IFileDialogControlEvents
 }
 
 func (this *IFileDialogControlEventsComObj) impl() win32.IFileDialogControlEventsInterface {
-	pParent := (*IFileDialogEventsComObj)(unsafe.Pointer(this.Parent))
-	return pParent.Impl().(win32.IFileDialogControlEventsInterface)
+	return this.Impl().(win32.IFileDialogControlEventsInterface)
 }
 
 func (this *IFileDialogControlEventsComObj) OnItemSelected(pfdc *win32.IFileDialogCustomize, dwIDCtl uint32, dwIDItem uint32) uintptr {
@@ -198,7 +180,7 @@ func (this *IFileDialogControlEventsComObj) BuildVtbl(lock bool) *win32.IFileDia
 		com.Malloc(unsafe.Sizeof(*_pIFileDialogControlEventsVtbl)))
 
 	*_pIFileDialogControlEventsVtbl = win32.IFileDialogControlEventsVtbl{
-		IUnknownVtbl:         *this.SubComObj.BuildVtbl(false),
+		IUnknownVtbl:         *this.IUnknownComObj.BuildVtbl(false),
 		OnItemSelected:       syscall.NewCallback((*IFileDialogControlEventsComObj).OnItemSelected),
 		OnButtonClicked:      syscall.NewCallback((*IFileDialogControlEventsComObj).OnButtonClicked),
 		OnCheckButtonToggled: syscall.NewCallback((*IFileDialogControlEventsComObj).OnCheckButtonToggled),
@@ -209,6 +191,15 @@ func (this *IFileDialogControlEventsComObj) BuildVtbl(lock bool) *win32.IFileDia
 
 func (this *IFileDialogControlEventsComObj) GetVtbl() *win32.IUnknownVtbl {
 	return &this.BuildVtbl(true).IUnknownVtbl
+}
+
+type CoFileDialogEventsComObj struct {
+	IFileDialogEventsComObj
+	iFileDialogControlEventsComObj IFileDialogControlEventsComObj
+}
+
+func (this *CoFileDialogEventsComObj) GetSubComObjs() []com.ComObjInterface {
+	return []com.ComObjInterface{&this.iFileDialogControlEventsComObj}
 }
 
 /* https://docs.microsoft.com/en-us/windows/win32/shell/common-file-dialog#basic-usage */
@@ -237,7 +228,7 @@ func main() {
 
 	//
 	var pfde *win32.IFileDialogEvents
-	pfde = com.NewComObj[IFileDialogEventsComObj](&IFileDialogEventsInterfaceImpl{}).IFileDialogEvents()
+	pfde = com.NewComObj[CoFileDialogEventsComObj](&IFileDialogEventsInterfaceImpl{}).IFileDialogEvents()
 	var cookie uint32
 	hr = pfd.Advise(pfde, &cookie)
 	win32.ASSERT_SUCCEEDED(hr)

@@ -585,7 +585,7 @@ func (this *Variant) ToUint32() (uint32, error) {
 		if err != nil {
 			return 0, com.NewError(win32.DISP_E_TYPEMISMATCH)
 		}
-		if n > math.MaxUint32 {
+		if n < 0 || uint32(n) > math.MaxUint32 {
 			return 0, com.NewError(win32.DISP_E_OVERFLOW)
 		}
 		return uint32(n), nil

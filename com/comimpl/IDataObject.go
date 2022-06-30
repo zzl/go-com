@@ -50,12 +50,13 @@ func (this *IDataObjectImpl) GetData(pformatetcIn *win32.FORMATETC, pmedium *win
 	*pmedium = win32.STGMEDIUM{}
 	hr := win32.DATA_E_FORMATETC
 
-	if pformatetcIn.CfFormat >= win32.CF_PRIVATEFIRST && pformatetcIn.CfFormat <= win32.CF_PRIVATELAST {
+	if pformatetcIn.CfFormat >= uint16(win32.CF_PRIVATEFIRST) &&
+		pformatetcIn.CfFormat <= uint16(win32.CF_PRIVATELAST) {
 		*pmedium.HGlobal() = this.DataHandle
 		return win32.S_OK
 	}
 
-	if pformatetcIn.CfFormat == win32.CF_UNICODETEXT {
+	if pformatetcIn.CfFormat == uint16(win32.CF_UNICODETEXT) {
 		if pformatetcIn.Tymed&(uint32)(win32.TYMED_HGLOBAL) != 0 {
 			text := this.Text
 			wsz, _ := syscall.UTF16FromString(text)
@@ -85,9 +86,10 @@ func (this *IDataObjectImpl) GetDataHere(pformatetc *win32.FORMATETC, pmedium *w
 
 func (this *IDataObjectImpl) QueryGetData(pformatetc *win32.FORMATETC) win32.HRESULT {
 	hr := win32.S_FALSE
-	if pformatetc.CfFormat >= win32.CF_PRIVATEFIRST && pformatetc.CfFormat <= win32.CF_PRIVATELAST {
+	if pformatetc.CfFormat >= uint16(win32.CF_PRIVATEFIRST) &&
+		pformatetc.CfFormat <= uint16(win32.CF_PRIVATELAST) {
 		hr = win32.S_OK
-	} else if pformatetc.CfFormat == win32.CF_UNICODETEXT {
+	} else if pformatetc.CfFormat == uint16(win32.CF_UNICODETEXT) {
 		hr = win32.S_OK
 	} else if win32.SUCCEEDED(this.lazyLoadShellDo()) {
 		hr = this.shellDo.QueryGetData(pformatetc)
@@ -102,7 +104,8 @@ func (this *IDataObjectImpl) GetCanonicalFormatEtc(pformatectIn *win32.FORMATETC
 }
 
 func (this *IDataObjectImpl) SetData(pformatetc *win32.FORMATETC, pmedium *win32.STGMEDIUM, fRelease win32.BOOL) win32.HRESULT {
-	if pformatetc.CfFormat >= win32.CF_PRIVATEFIRST && pformatetc.CfFormat <= win32.CF_PRIVATELAST {
+	if pformatetc.CfFormat >= uint16(win32.CF_PRIVATEFIRST) &&
+		pformatetc.CfFormat <= uint16(win32.CF_PRIVATELAST) {
 		this.DataHandle = *pmedium.HGlobal()
 		return win32.S_OK
 	}
@@ -118,7 +121,7 @@ func (this *IDataObjectImpl) EnumFormatEtc(dwDirection uint32, ppenumFormatEtc *
 	hr := win32.E_NOTIMPL
 	if dwDirection == (uint32)(win32.DATADIR_GET) {
 		rgfmtetc := []win32.FORMATETC{
-			{win32.CF_UNICODETEXT, nil, 0, 0, (uint32)(win32.TYMED_HGLOBAL)},
+			{uint16(win32.CF_UNICODETEXT), nil, 0, 0, (uint32)(win32.TYMED_HGLOBAL)},
 		}
 		hr = win32.SHCreateStdEnumFmtEtc(1, &rgfmtetc[0], ppenumFormatEtc)
 	}

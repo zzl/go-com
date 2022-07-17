@@ -58,8 +58,7 @@ func NewVariant(value interface{}) *Variant {
 	case int8:
 		v := &Variant{}
 		v.Vt = uint16(win32.VT_I1)
-		//*v.CVal() = win32.CHAR(val)
-		*v.CVal() = val
+		*v.CVal() = win32.CHAR(val)
 		return v
 	case uint8:
 		v := &Variant{}

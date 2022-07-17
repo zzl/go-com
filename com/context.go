@@ -12,10 +12,20 @@ import (
 var tlsIndex uint32
 
 type Context struct {
-	ID           int32 //could be reused
-	TID          uint32
-	CurrentScope *Scope
+	ID  int32 //could be reused
+	TID uint32
+
+	currentScope unsafe.Pointer // *Scope
 	LastError    *ErrorInfo
+}
+
+func (this *Context) GetCurrentScope() *Scope {
+	p := atomic.LoadPointer(&this.currentScope)
+	return (*Scope)(p)
+}
+
+func (this *Context) SetCurrentScope(s *Scope) {
+	atomic.StorePointer(&this.currentScope, unsafe.Pointer(s))
 }
 
 var contexts []*Context
@@ -32,7 +42,6 @@ func init() {
 }
 
 func InitializeContext() {
-	//win32.TlsSetValue()
 	index := -1
 	context := &Context{}
 	context.TID = win32.GetCurrentThreadId()
@@ -110,9 +119,15 @@ func Initialize() Initialized {
 	InitializeContext()
 	win32.CoInitialize(nil)
 
-	//atomic.LoadInt32()
-	//tId := win32.GetCurrentThreadId()
-	//comThreadIds.Store(tId, true)
+	return Initialized{}
+}
+
+func InitializeMt() Initialized {
+	runtime.LockOSThread()
+
+	InitializeContext()
+	win32.CoInitializeEx(nil, win32.COINIT_MULTITHREADED)
+
 	return Initialized{}
 }
 

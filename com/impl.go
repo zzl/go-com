@@ -176,6 +176,10 @@ type IUnknownComObj struct {
 	Parent   *IUnknownComObj
 }
 
+func (this *IUnknownComObj) GetIUnknown() *win32.IUnknown {
+	return this.IUnknown()
+}
+
 func (this *IUnknownComObj) AssignPpvObject(ppvObject unsafe.Pointer) {
 	*(*unsafe.Pointer)(ppvObject) = unsafe.Pointer(this)
 }

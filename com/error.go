@@ -29,6 +29,9 @@ func NewError(hr win32.HRESULT) Error {
 	return Error(hr)
 }
 
+const OK = Error(win32.S_OK)
+const FAIL = Error(win32.E_FAIL)
+
 func NewErrorOrNil(hr win32.HRESULT) error {
 	if win32.SUCCEEDED(hr) {
 		return nil

@@ -3,6 +3,7 @@ package com
 import (
 	"github.com/zzl/go-win32api/win32"
 	"log"
+	"sync"
 	"unsafe"
 )
 
@@ -11,7 +12,7 @@ type scopedObject struct {
 	Type int //0:com interface, 1:bstr, 2:*variant, 3:safearray
 }
 
-//var CurrentScope *Scope
+var muScope sync.Mutex
 
 type Scope struct {
 	scopedObjs  []scopedObject
@@ -21,30 +22,36 @@ type Scope struct {
 func NewScope() *Scope {
 	context := GetContext()
 	scope := &Scope{
-		ParentScope: context.CurrentScope,
+		ParentScope: context.GetCurrentScope(),
 	}
-	context.CurrentScope = scope
+	context.SetCurrentScope(scope)
 	return scope
 }
 
+func (this *Scope) _add(so scopedObject) {
+	muScope.Lock()
+	this.scopedObjs = append(this.scopedObjs, so)
+	muScope.Unlock()
+}
+
 func (this *Scope) Add(pUnknown unsafe.Pointer) {
-	this.scopedObjs = append(this.scopedObjs, scopedObject{Ptr: pUnknown})
+	this._add(scopedObject{Ptr: pUnknown})
 }
 
 func (this *Scope) AddComPtr(iunknownObj win32.IUnknownObject, addRef ...bool) {
 	pUnknown := iunknownObj.GetIUnknown()
-	this.scopedObjs = append(this.scopedObjs, scopedObject{Ptr: unsafe.Pointer(pUnknown), Type: 0})
 	if len(addRef) == 1 && addRef[0] {
 		pUnknown.AddRef()
 	}
+	this._add(scopedObject{Ptr: unsafe.Pointer(pUnknown), Type: 0})
 }
 
 func (this *Scope) AddBstr(bstr win32.BSTR) {
-	this.scopedObjs = append(this.scopedObjs, scopedObject{Ptr: unsafe.Pointer(bstr), Type: 1})
+	this._add(scopedObject{Ptr: unsafe.Pointer(bstr), Type: 1})
 }
 
 func (this *Scope) AddVar(pVar *win32.VARIANT) {
-	this.scopedObjs = append(this.scopedObjs, scopedObject{Ptr: unsafe.Pointer(pVar), Type: 2})
+	this._add(scopedObject{Ptr: unsafe.Pointer(pVar), Type: 2})
 }
 
 func (this *Scope) AddVarIfNeeded(pVar *win32.VARIANT) {
@@ -54,11 +61,11 @@ func (this *Scope) AddVarIfNeeded(pVar *win32.VARIANT) {
 	default:
 		return
 	}
-	this.scopedObjs = append(this.scopedObjs, scopedObject{Ptr: unsafe.Pointer(pVar), Type: 2})
+	this._add(scopedObject{Ptr: unsafe.Pointer(pVar), Type: 2})
 }
 
 func (this *Scope) AddArray(psa *win32.SAFEARRAY) {
-	this.scopedObjs = append(this.scopedObjs, scopedObject{Ptr: unsafe.Pointer(psa), Type: 3})
+	this._add(scopedObject{Ptr: unsafe.Pointer(psa), Type: 3})
 }
 
 type VariantCompatible interface {
@@ -70,7 +77,7 @@ func AddToScope(value interface{}, scope ...*Scope) {
 	if len(scope) != 0 {
 		s = scope[0]
 	} else {
-		currentScope := GetContext().CurrentScope
+		currentScope := GetContext().GetCurrentScope()
 		if currentScope == nil {
 			log.Panic("no current scope")
 		}
@@ -104,13 +111,19 @@ func WithScope(action func()) {
 
 func (this *Scope) Leave() {
 	this.Clear()
-	GetContext().CurrentScope = this.ParentScope
+	GetContext().SetCurrentScope(this.ParentScope)
 }
 
 func (this *Scope) Clear() {
+	muScope.Lock()
 	count := len(this.scopedObjs)
-	for n := 0; n < count; n++ {
-		obj := this.scopedObjs[n]
+	scopedObjs := make([]scopedObject, count)
+	copy(scopedObjs, this.scopedObjs)
+	this.scopedObjs = nil
+	muScope.Unlock()
+
+	for n := count - 1; n >= 0; n-- {
+		obj := scopedObjs[n]
 		if obj.Type == 0 {
 			(*win32.IUnknown)(obj.Ptr).Release()
 		} else if obj.Type == 1 {
@@ -121,5 +134,5 @@ func (this *Scope) Clear() {
 			win32.SafeArrayDestroy((*win32.SAFEARRAY)(obj.Ptr))
 		}
 	}
-	this.scopedObjs = nil
+
 }

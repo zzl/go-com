@@ -5,7 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/zzl/go-com/com"
-	"github.com/zzl/go-win32api/win32"
+	"github.com/zzl/go-win32api/v2/win32"
 )
 
 type IDispatchImpl struct {
@@ -66,7 +66,7 @@ func (this *IDispatchComObj) GetIDsOfNames(riid *syscall.GUID,
 }
 
 func (this *IDispatchComObj) Invoke(dispIdMember int32, riid *syscall.GUID,
-	lcid uint32, wFlags uint16, pDispParams *win32.DISPPARAMS,
+	lcid uint32, wFlags win32.DISPATCH_FLAGS, pDispParams *win32.DISPPARAMS,
 	pVarResult *win32.VARIANT, pExcepInfo *win32.EXCEPINFO, puArgErr *uint32) uintptr {
 	return uintptr(this.impl().Invoke(dispIdMember, riid, lcid,
 		wFlags, pDispParams, pVarResult, pExcepInfo, puArgErr))

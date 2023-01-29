@@ -3,7 +3,7 @@ package ole
 import (
 	"unsafe"
 
-	"github.com/zzl/go-win32api/win32"
+	"github.com/zzl/go-win32api/v2/win32"
 )
 
 func ProcessInvokeArgs(pDispParams *win32.DISPPARAMS, formalArgc int) ([]*Variant, []int) {

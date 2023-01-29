@@ -6,7 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/zzl/go-com/ole"
-	"github.com/zzl/go-win32api/win32"
+	"github.com/zzl/go-win32api/v2/win32"
 )
 
 type VariantFunc func(args ...*ole.Variant) *ole.Variant
@@ -56,14 +56,14 @@ func (this *FuncMapDispImpl) GetIDsOfNames(riid *syscall.GUID, rgszNames *win32.
 }
 
 func (this *FuncMapDispImpl) Invoke(dispIdMember int32, riid *syscall.GUID,
-	lcid uint32, wFlags uint16, pDispParams *win32.DISPPARAMS, pVarResult *win32.VARIANT,
+	lcid uint32, wFlags win32.DISPATCH_FLAGS, pDispParams *win32.DISPPARAMS, pVarResult *win32.VARIANT,
 	pExcepInfo *win32.EXCEPINFO, puArgErr *uint32) win32.HRESULT {
 
 	vArgs, _ := ole.ProcessInvokeArgs(pDispParams, 9)
 
 	funcIdx := int(dispIdMember) - 1
 	if funcIdx >= 0 && funcIdx < len(this.funcs) {
-		if wFlags == uint16(win32.DISPATCH_PROPERTYGET) { //
+		if wFlags == win32.DISPATCH_PROPERTYGET { //
 			if pDispParams.CArgs == 0 {
 				pDispThis := (*win32.IDispatch)(unsafe.Pointer(this.ComObj.GetIUnknownComObj()))
 				pDisp := NewBoundMethodDispatch(pDispThis, dispIdMember)
@@ -82,10 +82,10 @@ func (this *FuncMapDispImpl) Invoke(dispIdMember int32, riid *syscall.GUID,
 	} else if propIdx := funcIdx - len(this.funcs); propIdx >= 0 && propIdx < len(this.props) {
 		prop := this.props[propIdx]
 		var f VariantFunc
-		if wFlags == uint16(win32.DISPATCH_PROPERTYGET) {
+		if wFlags == win32.DISPATCH_PROPERTYGET {
 			f = prop.Get
-		} else if wFlags == uint16(win32.DISPATCH_PROPERTYPUT) ||
-			wFlags == uint16(win32.DISPATCH_PROPERTYPUTREF) {
+		} else if wFlags == win32.DISPATCH_PROPERTYPUT ||
+			wFlags == win32.DISPATCH_PROPERTYPUTREF {
 			f = prop.Set
 		}
 		if f == nil {

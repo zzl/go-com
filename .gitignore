@@ -16,3 +16,5 @@ vendor/
 .idea/
 _test/
 _bak/
+
+go.work

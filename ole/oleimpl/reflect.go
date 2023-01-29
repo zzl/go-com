@@ -9,7 +9,7 @@ import (
 	"github.com/zzl/go-com/ole"
 
 	"github.com/zzl/go-com/com"
-	"github.com/zzl/go-win32api/win32"
+	"github.com/zzl/go-win32api/v2/win32"
 )
 
 type ReflectDispMember struct {
@@ -89,7 +89,7 @@ func (this *ReflectDispImpl) GetIDsOfNames(riid *syscall.GUID, rgszNames *win32.
 }
 
 func (this *ReflectDispImpl) Invoke(dispIdMember int32, riid *syscall.GUID,
-	lcid uint32, wFlags uint16, pDispParams *win32.DISPPARAMS, pVarResult *win32.VARIANT,
+	lcid uint32, wFlags win32.DISPATCH_FLAGS, pDispParams *win32.DISPPARAMS, pVarResult *win32.VARIANT,
 	pExcepInfo *win32.EXCEPINFO, puArgErr *uint32) win32.HRESULT {
 	dispId := int(dispIdMember)
 	if dispId == 0 {
@@ -99,9 +99,9 @@ func (this *ReflectDispImpl) Invoke(dispIdMember int32, riid *syscall.GUID,
 	}
 	member := this.members[dispId-1]
 	var funcValue *reflect.Value
-	if wFlags&uint16(win32.DISPATCH_METHOD) != 0 {
+	if wFlags&win32.DISPATCH_METHOD != 0 {
 		funcValue = member.CallFuncValue
-	} else if wFlags == uint16(win32.DISPATCH_PROPERTYGET) {
+	} else if wFlags == win32.DISPATCH_PROPERTYGET {
 		funcValue = member.GetFuncValue
 		if funcValue == nil {
 			if member.CallFuncValue != nil && pDispParams.CArgs == 0 {

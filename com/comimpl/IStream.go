@@ -6,7 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/zzl/go-com/com"
-	"github.com/zzl/go-win32api/win32"
+	"github.com/zzl/go-win32api/v2/win32"
 )
 
 //
@@ -43,7 +43,7 @@ func (this *IStreamImpl) Revert() win32.HRESULT {
 	return win32.E_NOTIMPL
 }
 
-func (this *IStreamImpl) LockRegion(libOffset uint64, cb uint64, dwLockType uint32) win32.HRESULT {
+func (this *IStreamImpl) LockRegion(libOffset uint64, cb uint64, dwLockType win32.LOCKTYPE) win32.HRESULT {
 	return win32.E_NOTIMPL
 }
 
@@ -51,7 +51,7 @@ func (this *IStreamImpl) UnlockRegion(libOffset uint64, cb uint64, dwLockType ui
 	return win32.E_NOTIMPL
 }
 
-func (this *IStreamImpl) Stat(pstatstg *win32.STATSTG, grfStatFlag uint32) win32.HRESULT {
+func (this *IStreamImpl) Stat(pstatstg *win32.STATSTG, grfStatFlag win32.STATFLAG) win32.HRESULT {
 	return win32.E_NOTIMPL
 }
 
@@ -96,7 +96,7 @@ func (this *IStreamComObj) Revert() uintptr {
 	return (uintptr)(this.impl().Revert())
 }
 
-func (this *IStreamComObj) LockRegion(libOffset uint64, cb uint64, dwLockType uint32) uintptr {
+func (this *IStreamComObj) LockRegion(libOffset uint64, cb uint64, dwLockType win32.LOCKTYPE) uintptr {
 	return (uintptr)(this.impl().LockRegion(libOffset, cb, dwLockType))
 }
 
@@ -104,7 +104,7 @@ func (this *IStreamComObj) UnlockRegion(libOffset uint64, cb uint64, dwLockType 
 	return (uintptr)(this.impl().UnlockRegion(libOffset, cb, dwLockType))
 }
 
-func (this *IStreamComObj) Stat(pstatstg *win32.STATSTG, grfStatFlag uint32) uintptr {
+func (this *IStreamComObj) Stat(pstatstg *win32.STATSTG, grfStatFlag win32.STATFLAG) uintptr {
 	return (uintptr)(this.impl().Stat(pstatstg, grfStatFlag))
 }
 

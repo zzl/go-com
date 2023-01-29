@@ -2,7 +2,7 @@ package com
 
 import (
 	"fmt"
-	"github.com/zzl/go-win32api/win32"
+	"github.com/zzl/go-win32api/v2/win32"
 	"log"
 	"unsafe"
 )

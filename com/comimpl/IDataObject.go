@@ -5,7 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/zzl/go-com/com"
-	"github.com/zzl/go-win32api/win32"
+	"github.com/zzl/go-win32api/v2/win32"
 )
 
 type IDataObjectImpl struct {
@@ -71,7 +71,7 @@ func (this *IDataObjectImpl) GetData(pformatetcIn *win32.FORMATETC, pmedium *win
 				bts := unsafe.Slice((*uint16)(unsafe.Pointer(h)), cb)
 				copy(bts, wsz)
 				*pmedium.HGlobal() = h
-				pmedium.Tymed = (uint32)(win32.TYMED_HGLOBAL)
+				pmedium.Tymed = win32.TYMED_HGLOBAL
 			}
 		}
 	} else if win32.SUCCEEDED(this.lazyLoadShellDo()) {
@@ -143,43 +143,46 @@ func (this *IDataObjectImpl) EnumDAdvise(ppenumAdvise **win32.IEnumSTATDATA) win
 //
 type IDataObjectComObj struct {
 	com.IUnknownComObj
-	impl win32.IDataObjectInterface
+}
+
+func (this *IDataObjectComObj) impl() win32.IDataObjectInterface {
+	return this.Impl().(win32.IDataObjectInterface)
 }
 
 func (this *IDataObjectComObj) GetData(pformatetcIn *win32.FORMATETC, pmedium *win32.STGMEDIUM) uintptr {
-	return uintptr(this.impl.GetData(pformatetcIn, pmedium))
+	return uintptr(this.impl().GetData(pformatetcIn, pmedium))
 }
 
 func (this *IDataObjectComObj) GetDataHere(pformatetc *win32.FORMATETC, pmedium *win32.STGMEDIUM) uintptr {
-	return uintptr(this.impl.GetDataHere(pformatetc, pmedium))
+	return uintptr(this.impl().GetDataHere(pformatetc, pmedium))
 }
 
 func (this *IDataObjectComObj) QueryGetData(pformatetc *win32.FORMATETC) uintptr {
-	return uintptr(this.impl.QueryGetData(pformatetc))
+	return uintptr(this.impl().QueryGetData(pformatetc))
 }
 
 func (this *IDataObjectComObj) GetCanonicalFormatEtc(pformatectIn *win32.FORMATETC, pformatetcOut *win32.FORMATETC) uintptr {
-	return uintptr(this.impl.GetCanonicalFormatEtc(pformatectIn, pformatetcOut))
+	return uintptr(this.impl().GetCanonicalFormatEtc(pformatectIn, pformatetcOut))
 }
 
 func (this *IDataObjectComObj) SetData(pformatetc *win32.FORMATETC, pmedium *win32.STGMEDIUM, fRelease win32.BOOL) uintptr {
-	return uintptr(this.impl.SetData(pformatetc, pmedium, fRelease))
+	return uintptr(this.impl().SetData(pformatetc, pmedium, fRelease))
 }
 
 func (this *IDataObjectComObj) EnumFormatEtc(dwDirection uint32, ppenumFormatEtc **win32.IEnumFORMATETC) uintptr {
-	return uintptr(this.impl.EnumFormatEtc(dwDirection, ppenumFormatEtc))
+	return uintptr(this.impl().EnumFormatEtc(dwDirection, ppenumFormatEtc))
 }
 
 func (this *IDataObjectComObj) DAdvise(pformatetc *win32.FORMATETC, advf uint32, pAdvSink *win32.IAdviseSink, pdwConnection *uint32) uintptr {
-	return uintptr(this.impl.DAdvise(pformatetc, advf, pAdvSink, pdwConnection))
+	return uintptr(this.impl().DAdvise(pformatetc, advf, pAdvSink, pdwConnection))
 }
 
 func (this *IDataObjectComObj) DUnadvise(dwConnection uint32) uintptr {
-	return uintptr(this.impl.DUnadvise(dwConnection))
+	return uintptr(this.impl().DUnadvise(dwConnection))
 }
 
 func (this *IDataObjectComObj) EnumDAdvise(ppenumAdvise **win32.IEnumSTATDATA) uintptr {
-	return uintptr(this.impl.EnumDAdvise(ppenumAdvise))
+	return uintptr(this.impl().EnumDAdvise(ppenumAdvise))
 }
 
 var _pIDataObjectVtbl *win32.IDataObjectVtbl
@@ -207,7 +210,19 @@ func (this *IDataObjectComObj) BuildVtbl(lock bool) *win32.IDataObjectVtbl {
 	return _pIDataObjectVtbl
 }
 
+func (this *IDataObjectComObj) GetVtbl() *win32.IUnknownVtbl {
+	return &this.BuildVtbl(true).IUnknownVtbl
+}
+
+func (this *IDataObjectComObj) IDataObject() *win32.IDataObject {
+	return (*win32.IDataObject)(unsafe.Pointer(this))
+}
+
 func NewIDataObjectComObj(impl win32.IDataObjectInterface) *IDataObjectComObj {
 	comObj := com.NewComObj[IDataObjectComObj](impl)
 	return comObj
+}
+
+func NewDataObject() *win32.IDataObject {
+	return NewIDataObjectComObj(&IDataObjectImpl{}).IDataObject()
 }

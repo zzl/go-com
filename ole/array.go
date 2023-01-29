@@ -2,7 +2,7 @@ package ole
 
 import (
 	"github.com/zzl/go-com/com"
-	"github.com/zzl/go-win32api/win32"
+	"github.com/zzl/go-win32api/v2/win32"
 	"log"
 	"unsafe"
 )
@@ -41,7 +41,7 @@ func NewArrayWithBounds[T any](bounds []win32.SAFEARRAYBOUND, scoped bool) Array
 }
 
 func NewArrayWithVt[T any](varType win32.VARENUM, bounds []win32.SAFEARRAYBOUND, scoped bool) Array[T] {
-	psa := win32.SafeArrayCreate(uint16(varType), uint32(len(bounds)), &bounds[0])
+	psa := win32.SafeArrayCreate(varType, uint32(len(bounds)), &bounds[0])
 	a := Array[T]{psa}
 	a.lock()
 	if scoped {
@@ -91,7 +91,7 @@ func (me Array[T]) GetDimCount() int {
 }
 
 func (me Array[T]) GetVarType() win32.VARENUM {
-	var vt uint16
+	var vt win32.VARENUM
 	win32.SafeArrayGetVartype(me.Psa, &vt)
 	return win32.VARENUM(vt)
 }
@@ -189,7 +189,7 @@ func (me Array[T]) ToVar() Variant {
 
 func (me Array[T]) ToVarEx(copy bool, scoped bool) Variant {
 	var v Variant
-	v.Vt = uint16(win32.VT_ARRAY | me.GetVarType())
+	v.Vt = win32.VT_ARRAY | me.GetVarType()
 	if copy {
 		*v.Parray() = me.Copy().Detach()
 	} else {

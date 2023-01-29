@@ -11,7 +11,7 @@ import (
 	"unsafe"
 
 	"github.com/zzl/go-com/com"
-	"github.com/zzl/go-win32api/win32"
+	"github.com/zzl/go-win32api/v2/win32"
 )
 
 type Variant win32.VARIANT
@@ -30,7 +30,7 @@ func NewVariant(value interface{}) *Variant {
 	case *win32.IUnknown:
 		val.AddRef() //ref added
 		v := &Variant{}
-		v.Vt = uint16(win32.VT_UNKNOWN)
+		v.Vt = win32.VT_UNKNOWN
 		*v.PunkVal() = val
 		return v
 	case nil:
@@ -38,66 +38,66 @@ func NewVariant(value interface{}) *Variant {
 	case int:
 		v := &Variant{}
 		if val >= math.MinInt32 && val <= math.MaxInt32 {
-			v.Vt = uint16(win32.VT_I4)
+			v.Vt = win32.VT_I4
 			*v.IntVal() = int32(val)
 		} else {
-			v.Vt = uint16(win32.VT_I8)
+			v.Vt = win32.VT_I8
 			*v.LlVal() = int64(val)
 		}
 		return v
 	case uint:
 		v := &Variant{}
 		if val <= math.MaxUint32 {
-			v.Vt = uint16(win32.VT_UI4)
+			v.Vt = win32.VT_UI4
 			*v.UintVal() = uint32(val)
 		} else {
-			v.Vt = uint16(win32.VT_UI8)
+			v.Vt = win32.VT_UI8
 			*v.UllVal() = uint64(val)
 		}
 		return v
 	case int8:
 		v := &Variant{}
-		v.Vt = uint16(win32.VT_I1)
+		v.Vt = win32.VT_I1
 		*v.CVal() = win32.CHAR(val)
 		return v
 	case uint8:
 		v := &Variant{}
-		v.Vt = uint16(win32.VT_I1)
+		v.Vt = win32.VT_I1
 		*v.BVal() = val
 		return v
 	case int16:
 		v := &Variant{}
-		v.Vt = uint16(win32.VT_I2)
+		v.Vt = win32.VT_I2
 		*v.IVal() = val
 		return v
 	case uint16:
 		v := &Variant{}
-		v.Vt = uint16(win32.VT_UI2)
+		v.Vt = win32.VT_UI2
 		*v.UiVal() = val
 		return v
 	case int32:
 		v := &Variant{}
-		v.Vt = uint16(win32.VT_I4)
+		v.Vt = win32.VT_I4
 		*v.LVal() = val
 		return v
 	case uint32:
 		v := &Variant{}
-		v.Vt = uint16(win32.VT_UI4)
+		v.Vt = win32.VT_UI4
 		*v.UlVal() = val
 		return v
 	case int64:
 		v := &Variant{}
-		v.Vt = uint16(win32.VT_I8)
+		v.Vt = win32.VT_I8
 		*v.LlVal() = val
 		return v
 	case uint64:
 		v := &Variant{}
-		v.Vt = uint16(win32.VT_UI8)
+		v.Vt = win32.VT_UI8
 		*v.UllVal() = val
 		return v
 	case time.Time:
 		v := &Variant{}
-		v.Vt = uint16(win32.VT_DATE)
+		v.Vt = win32.VT_DATE
 		*v.Date() = float64(NewOleDateFromGoTime(val))
 		return v
 	default:
@@ -123,7 +123,7 @@ func (this *Variant) Clear() {
 func (this *Variant) ChangeType(vt win32.VARENUM) (*Variant, error) {
 	var v Variant
 	hr := win32.VariantChangeType((*win32.VARIANT)(&v),
-		(*win32.VARIANT)(this), 0, uint16(vt))
+		(*win32.VARIANT)(this), 0, vt)
 	return &v, com.NewErrorOrNil(hr)
 }
 
@@ -795,9 +795,9 @@ func (this *Variant) ToFloat64() (float64, error) {
 
 //
 func (this *Variant) ToTime() (time.Time, error) {
-	v, vt := this, uint16(win32.VT_DATE)
+	v, vt := this, win32.VT_DATE
 	if v.Vt != vt {
-		if v.Vt == vt|uint16(win32.VT_BYREF) {
+		if v.Vt == vt|win32.VT_BYREF {
 			return Date(*v.PdateVal()).ToGoTime(), nil
 		}
 		v = &Variant{}
@@ -810,9 +810,9 @@ func (this *Variant) ToTime() (time.Time, error) {
 }
 
 func (this *Variant) ToCurrency() (Currency, error) {
-	v, vt := this, uint16(win32.VT_CY)
+	v, vt := this, win32.VT_CY
 	if v.Vt != vt {
-		if v.Vt == vt|uint16(win32.VT_BYREF) {
+		if v.Vt == vt|win32.VT_BYREF {
 			return Currency(*v.PcyValVal()), nil
 		}
 		v = &Variant{}
@@ -874,13 +874,13 @@ func (this *Variant) IDispatch() *win32.IDispatch {
 }
 
 func (this *Variant) ToIDispatch() (*win32.IDispatch, error) {
-	v, vt := this, uint16(win32.VT_DISPATCH)
+	v, vt := this, win32.VT_DISPATCH
 	if v.Vt == vt {
 		pDisp := v.PdispValVal()
 		//pDisp.AddRef()
 		return pDisp, nil
 	}
-	if v.Vt == vt|uint16(win32.VT_BYREF) {
+	if v.Vt == vt|win32.VT_BYREF {
 		pDisp := *v.PpdispValVal()
 		//pDisp.AddRef()
 		return pDisp, nil
@@ -896,13 +896,13 @@ func (this *Variant) ToIDispatch() (*win32.IDispatch, error) {
 }
 
 func (this *Variant) ToIUnknown() (*win32.IUnknown, error) {
-	v, vt := this, uint16(win32.VT_UNKNOWN)
+	v, vt := this, win32.VT_UNKNOWN
 	if v.Vt == vt {
 		pUnk := v.PunkValVal()
 		//pUnk.AddRef()
 		return pUnk, nil
 	}
-	if v.Vt == vt|uint16(win32.VT_BYREF) {
+	if v.Vt == vt|win32.VT_BYREF {
 		pUnk := *v.PpunkValVal()
 		//pUnk.AddRef()
 		return pUnk, nil
@@ -919,9 +919,9 @@ func (this *Variant) ToIUnknown() (*win32.IUnknown, error) {
 
 //
 func (this *Variant) ToHresult() (win32.HRESULT, error) {
-	v, vt := this, uint16(win32.VT_ERROR)
+	v, vt := this, win32.VT_ERROR
 	if v.Vt != vt {
-		if v.Vt == vt|uint16(win32.VT_BYREF) {
+		if v.Vt == vt|win32.VT_BYREF {
 			return *v.PscodeVal(), nil
 		}
 		v = &Variant{}
@@ -971,9 +971,9 @@ func (this *Variant) ToBool() (bool, error) {
 }
 
 func (this *Variant) ToDecimal() (Decimal, error) {
-	v, vt := this, uint16(win32.VT_DECIMAL)
+	v, vt := this, win32.VT_DECIMAL
 	if v.Vt != vt {
-		if v.Vt == vt|uint16(win32.VT_BYREF) {
+		if v.Vt == vt|win32.VT_BYREF {
 			return Decimal(*v.PdecValVal()), nil
 		}
 		v = &Variant{}
@@ -987,9 +987,9 @@ func (this *Variant) ToDecimal() (Decimal, error) {
 
 //no copy
 func (this *Variant) ToArray() (*win32.SAFEARRAY, error) {
-	v, vt := this, uint16(win32.VT_ARRAY)
+	v, vt := this, win32.VT_ARRAY
 	if v.Vt != vt {
-		if v.Vt == vt|uint16(win32.VT_BYREF) {
+		if v.Vt == vt|win32.VT_BYREF {
 			return *v.PparrayVal(), nil
 		} else {
 			return nil, com.NewError(win32.DISP_E_BADVARTYPE)
@@ -1005,14 +1005,14 @@ func (this *Variant) ToArray() (*win32.SAFEARRAY, error) {
 
 //
 func (this *Variant) ToInt8Ref() *int8 {
-	if this.Vt != uint16(win32.VT_I1|win32.VT_BYREF) {
+	if this.Vt != win32.VT_I1|win32.VT_BYREF {
 		return nil
 	}
 	return (*int8)(unsafe.Pointer(*this.PcVal()))
 }
 
 func (this *Variant) ToUint8Ref() *uint8 {
-	if this.Vt != uint16(win32.VT_UI1|win32.VT_BYREF) {
+	if this.Vt != win32.VT_UI1|win32.VT_BYREF {
 		return nil
 	}
 	return *this.PbVal()
@@ -1024,14 +1024,14 @@ func (this *Variant) ToByteRef() *byte {
 
 //
 func (this *Variant) ToInt16Ref() *int16 {
-	if this.Vt != uint16(win32.VT_I2|win32.VT_BYREF) {
+	if this.Vt != win32.VT_I2|win32.VT_BYREF {
 		return nil
 	}
 	return *this.PiVal()
 }
 
 func (this *Variant) ToUint16Ref() *uint16 {
-	if this.Vt != uint16(win32.VT_UI2|win32.VT_BYREF) {
+	if this.Vt != win32.VT_UI2|win32.VT_BYREF {
 		return nil
 	}
 	return *this.PuiVal()
@@ -1039,16 +1039,16 @@ func (this *Variant) ToUint16Ref() *uint16 {
 
 //
 func (this *Variant) ToInt32Ref() *int32 {
-	if this.Vt != uint16(win32.VT_I4|win32.VT_BYREF) ||
-		this.Vt != uint16(win32.VT_INT|win32.VT_BYREF) {
+	if this.Vt != win32.VT_I4|win32.VT_BYREF ||
+		this.Vt != win32.VT_INT|win32.VT_BYREF {
 		return nil
 	}
 	return *this.PlVal()
 }
 
 func (this *Variant) ToUint32Ref() *uint32 {
-	if this.Vt != uint16(win32.VT_UI4|win32.VT_BYREF) ||
-		this.Vt != uint16(win32.VT_UINT|win32.VT_BYREF) {
+	if this.Vt != win32.VT_UI4|win32.VT_BYREF ||
+		this.Vt != win32.VT_UINT|win32.VT_BYREF {
 		return nil
 	}
 	return *this.PulVal()
@@ -1056,14 +1056,14 @@ func (this *Variant) ToUint32Ref() *uint32 {
 
 //
 func (this *Variant) ToInt64Ref() *int64 {
-	if this.Vt != uint16(win32.VT_I8|win32.VT_BYREF) {
+	if this.Vt != win32.VT_I8|win32.VT_BYREF {
 		return nil
 	}
 	return *this.PllVal()
 }
 
 func (this *Variant) ToUint64Ref() *uint64 {
-	if this.Vt != uint16(win32.VT_UI8|win32.VT_BYREF) {
+	if this.Vt != win32.VT_UI8|win32.VT_BYREF {
 		return nil
 	}
 	return *this.PullVal()
@@ -1071,7 +1071,7 @@ func (this *Variant) ToUint64Ref() *uint64 {
 
 //
 func (this *Variant) ToFloat32Ref() *float32 {
-	if this.Vt != uint16(win32.VT_R4|win32.VT_BYREF) {
+	if this.Vt != win32.VT_R4|win32.VT_BYREF {
 		return nil
 	}
 	return *this.PfltVal()
@@ -1079,7 +1079,7 @@ func (this *Variant) ToFloat32Ref() *float32 {
 
 //
 func (this *Variant) ToFloat64Ref() *float64 {
-	if this.Vt != uint16(win32.VT_R8|win32.VT_BYREF) {
+	if this.Vt != win32.VT_R8|win32.VT_BYREF {
 		return nil
 	}
 	return *this.PdblVal()

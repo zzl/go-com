@@ -5,7 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/zzl/go-com/com"
-	"github.com/zzl/go-win32api/win32"
+	"github.com/zzl/go-win32api/v2/win32"
 )
 
 type IDropSourceImpl struct {
@@ -32,15 +32,18 @@ func (this *IDropSourceImpl) GiveFeedback(dwEffect uint32) win32.HRESULT {
 //
 type IDropSourceComObj struct {
 	com.IUnknownComObj
-	impl win32.IDropSourceInterface
 }
 
-func (this *IDropSourceComObj) QueryContinueDrag(fEscapePressed win32.BOOL, grfKeyState uint32) uintptr {
-	return uintptr(this.impl.QueryContinueDrag(fEscapePressed, grfKeyState))
+func (this *IDropSourceComObj) impl() win32.IDropSourceInterface {
+	return this.Impl().(win32.IDropSourceInterface)
 }
 
-func (this *IDropSourceComObj) GiveFeedback(dwEffect uint32) uintptr {
-	return uintptr(this.impl.GiveFeedback(dwEffect))
+func (this *IDropSourceComObj) QueryContinueDrag(fEscapePressed win32.BOOL, grfKeyState win32.MODIFIERKEYS_FLAGS) uintptr {
+	return uintptr(this.impl().QueryContinueDrag(fEscapePressed, grfKeyState))
+}
+
+func (this *IDropSourceComObj) GiveFeedback(dwEffect win32.DROPEFFECT) uintptr {
+	return uintptr(this.impl().GiveFeedback(dwEffect))
 }
 
 var _pIDropSourceVtbl *win32.IDropSourceVtbl
@@ -59,4 +62,17 @@ func (this *IDropSourceComObj) BuildVtbl(lock bool) *win32.IDropSourceVtbl {
 		GiveFeedback:      syscall.NewCallback((*IDropSourceComObj).GiveFeedback),
 	}
 	return _pIDropSourceVtbl
+}
+
+func (this *IDropSourceComObj) GetVtbl() *win32.IUnknownVtbl {
+	return &this.BuildVtbl(true).IUnknownVtbl
+}
+
+func (this *IDropSourceComObj) IDropSource() *win32.IDropSource {
+	return (*win32.IDropSource)(unsafe.Pointer(this))
+}
+
+func NewIDropSourceComObj(impl win32.IDropSourceInterface) *IDropSourceComObj {
+	comObj := com.NewComObj[IDropSourceComObj](impl)
+	return comObj
 }
